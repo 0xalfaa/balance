@@ -33,9 +33,15 @@ module.exports = {
     // Output file untuk hasil (opsional)
     OUTPUT_FILE: 'balance_results.json',
     
-    // Output file TXT untuk wallet dengan balance > 1 BNB
+    // Output file TXT untuk wallet dengan balance tinggi (>= threshold)
     HIGH_BALANCE_TXT_FILE: 'high_balance_wallets.txt',
     
-    // Minimum balance untuk masuk ke file TXT (dalam BNB)
-    MIN_BALANCE_FOR_TXT: 1.0
+    // Minimum balance untuk masuk ke high balance file (dalam BNB)
+    MIN_BALANCE_FOR_TXT: 1.0,
+    
+    // Output file TXT untuk wallet dengan balance rendah (< threshold)
+    LOW_BALANCE_TXT_FILE: 'low_balance_wallets.txt',
+    
+    // Maximum balance untuk masuk ke low balance file (dalam BNB)
+    MAX_BALANCE_FOR_LOW_TXT: 1.0
 };

@@ -168,6 +168,7 @@ class BSCBalanceChecker {
         this.displayResults();
         this.saveResults();
         this.saveHighBalanceToTXT();
+        this.saveLowBalanceToTXT();
     }
 
     // Menampilkan hasil dalam bentuk tabel
@@ -202,14 +203,18 @@ class BSCBalanceChecker {
             .filter(r => r.status === 'success')
             .reduce((sum, r) => sum + parseFloat(r.balance), 0);
 
-        // Filter wallet dengan balance > minimum untuk TXT
+        // Filter wallet dengan balance tinggi dan rendah
         const highBalanceWallets = this.results
             .filter(r => r.status === 'success' && parseFloat(r.balance) >= config.MIN_BALANCE_FOR_TXT);
+        
+        const lowBalanceWallets = this.results
+            .filter(r => r.status === 'success' && parseFloat(r.balance) < config.MAX_BALANCE_FOR_LOW_TXT && parseFloat(r.balance) > 0);
 
         console.log(chalk.blue(`\n📈 STATISTIK:`));
         console.log(chalk.white(`Total Wallet: ${this.results.length}`));
         console.log(chalk.green(`Total Balance: ${totalBalance.toFixed(6)} BNB`));
         console.log(chalk.magenta(`Wallet dengan Balance ≥ ${config.MIN_BALANCE_FOR_TXT} BNB: ${highBalanceWallets.length}`));
+        console.log(chalk.cyan(`Wallet dengan Balance < ${config.MAX_BALANCE_FOR_LOW_TXT} BNB: ${lowBalanceWallets.length}`));
         console.log(chalk.yellow(`Nilai USD (estimasi): $${(totalBalance * 600).toFixed(2)} *`)); // Asumsi BNB = $600
         console.log(chalk.gray(`* Harga BNB diasumsikan $600 untuk estimasi`));
     }
@@ -307,6 +312,81 @@ class BSCBalanceChecker {
 
         } catch (error) {
             console.log(chalk.red(`❌ Error menyimpan file TXT: ${error.message}`));
+        }
+    }
+
+    // Menyimpan wallet dengan balance rendah ke file TXT
+    saveLowBalanceToTXT() {
+        try {
+            // Filter wallet dengan balance < maximum dan > 0
+            const lowBalanceWallets = this.results
+                .filter(r => r.status === 'success' && parseFloat(r.balance) < config.MAX_BALANCE_FOR_LOW_TXT && parseFloat(r.balance) > 0)
+                .sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance)); // Sort descending by balance
+
+            if (lowBalanceWallets.length === 0) {
+                console.log(chalk.yellow(`⚠️  Tidak ada wallet dengan balance < ${config.MAX_BALANCE_FOR_LOW_TXT} BNB (dan > 0)`));
+                return;
+            }
+
+            // Buat header untuk file TXT
+            const timestamp = new Date().toLocaleString('id-ID', { 
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            let txtContent = `BSC WALLET BALANCE CHECKER - LOW BALANCE RESULTS\n`;
+            txtContent += `=================================================\n`;
+            txtContent += `Timestamp: ${timestamp}\n`;
+            txtContent += `Maximum Balance Filter: < ${config.MAX_BALANCE_FOR_LOW_TXT} BNB\n`;
+            txtContent += `Total Low Balance Wallets: ${lowBalanceWallets.length}\n`;
+            txtContent += `=================================================\n\n`;
+
+            // Hitung total balance untuk wallet low balance
+            const totalLowBalance = lowBalanceWallets.reduce((sum, r) => sum + parseFloat(r.balance), 0);
+            txtContent += `SUMMARY:\n`;
+            txtContent += `- Total Wallets Checked: ${this.results.length}\n`;
+            txtContent += `- Low Balance Wallets (<${config.MAX_BALANCE_FOR_LOW_TXT} BNB): ${lowBalanceWallets.length}\n`;
+            txtContent += `- Total Low Balance: ${totalLowBalance.toFixed(6)} BNB\n`;
+            txtContent += `- Estimated USD Value: $${(totalLowBalance * 600).toFixed(2)}\n\n`;
+
+            // Daftar wallet dengan format yang rapi
+            txtContent += `LOW BALANCE WALLETS LIST:\n`;
+            txtContent += `=========================\n\n`;
+
+            lowBalanceWallets.forEach((result, index) => {
+                const no = (index + 1).toString().padStart(3, ' ');
+                const balance = parseFloat(result.balance).toFixed(6).padStart(12, ' ');
+                const usdValue = (parseFloat(result.balance) * 600).toFixed(2).padStart(10, ' ');
+                
+                txtContent += `${no}. Address: ${result.address}\n`;
+                txtContent += `     Balance: ${balance} BNB (~$${usdValue} USD)\n\n`;
+            });
+
+            // Tambahkan raw list untuk copy-paste
+            txtContent += `\nRAW WALLET ADDRESSES (for copy-paste):\n`;
+            txtContent += `=====================================\n`;
+            lowBalanceWallets.forEach(result => {
+                txtContent += `${result.address}\n`;
+            });
+
+            txtContent += `\n=================================================\n`;
+            txtContent += `Generated by BSC Balance Checker Bot\n`;
+            txtContent += `Note: USD values are estimated based on $600/BNB\n`;
+            txtContent += `=================================================`;
+
+            // Simpan ke file
+            fs.writeFileSync(config.LOW_BALANCE_TXT_FILE, txtContent, 'utf8');
+            
+            console.log(chalk.green(`📉 Low balance wallets (<${config.MAX_BALANCE_FOR_LOW_TXT} BNB) disimpan ke: ${config.LOW_BALANCE_TXT_FILE}`));
+            console.log(chalk.cyan(`📊 ${lowBalanceWallets.length} wallet dengan total ${totalLowBalance.toFixed(6)} BNB`));
+
+        } catch (error) {
+            console.log(chalk.red(`❌ Error menyimpan file TXT low balance: ${error.message}`));
         }
     }
 }
